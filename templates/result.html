@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Predicted Sign:</h2>
+        <h3>{{ prediction }}</h3>
+        <img src="{{ url_for('static', filename=image_path.split('/')[-1]) }}" alt="Uploaded Image">
+        <a href="/">Try Another</a>
+    </div>
+</body>
+</html>

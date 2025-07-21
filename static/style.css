@@ -1,0 +1,36 @@
+body {
+    background: #f4f4f4;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 40px;
+}
+
+.container {
+    background: white;
+    padding: 30px;
+    margin: auto;
+    width: 60%;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+}
+
+input[type=file] {
+    margin: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #364156;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+img {
+    margin-top: 20px;
+    width: 250px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px gray;
+}
