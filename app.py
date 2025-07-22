@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template, request
 from keras.models import load_model
 from PIL import Image
@@ -24,6 +23,89 @@ classes = {
     40:'Roundabout mandatory', 41:'End of no passing', 42:'End no passing veh > 3.5 tons'
 }
 
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/index', methods=['GET', 'POST'])
+def index():
+    mode = None
+    prediction = None
+    confidence = None
+    image_path = None
+    search_images = []
+    search_descs = []
+    wiki_description = ""
+    wiki_full = ""
+    query = None
+    full_info = None
+
+    if request.method == 'POST':
+        mode = request.form.get('mode')
+
+        # Handle classification
+        if mode == 'classify':
+            file = request.files.get('file')
+            if file and file.filename != '':
+                filepath = os.path.join('static', file.filename)
+                file.save(filepath)
+                class_idx, confidence = model_predict(filepath)
+                prediction = classes.get(class_idx, "Unknown")
+                image_path = filepath
+            elif 'file' in request.files:
+                return render_template('index.html', mode=mode, error="Please select an image.", classes=classes)
+
+        # Handle search
+        elif mode == 'search':
+            query = request.form.get('sign_name')
+            full_info = request.form.get('full_info')
+
+            if query:
+                # Google Images
+                api_key = "AIzaSyAxlSkcip8MtFRXNIVt0GT8AYMHAaoP7O8"
+                cx = "401d18a9be38b4035"
+                response = requests.get(
+                    f"https://www.googleapis.com/customsearch/v1?q={query}+traffic+sign&searchType=image&num=5&key={api_key}&cx={cx}"
+                )
+                data = response.json()
+                if 'items' in data:
+                    for item in data['items']:
+                        search_images.append(item['link'])
+                        search_descs.append(item.get('title', 'Traffic Sign'))
+
+                # Wikipedia Description
+                try:
+                    wiki_full = wikipedia.summary(f"{query} traffic sign", sentences=5)
+                    if not full_info:
+                        wiki_description = wikipedia.summary(f"{query} traffic sign", sentences=2)
+                    else:
+                        wiki_description = wiki_full
+                except:
+                    wiki_description = "No detailed description found."
+
+                # Translation to English (can be re-translated on frontend)
+                try:
+                    translator = Translator()
+                    translation = translator.translate(wiki_description, dest='en')
+                    wiki_description = translation.text
+                except:
+                    pass
+
+    return render_template(
+        'index.html',
+        mode=mode,
+        prediction=prediction,
+        confidence=confidence,
+        image_path=image_path,
+        search_images=search_images,
+        search_query=query,
+        search_descs=search_descs,
+        wiki_description=wiki_description,
+        wiki_full=wiki_full,
+        full_info=full_info,
+        classes=classes,
+        zip=zip
+    )
 
 def model_predict(img_path):
     image = Image.open(img_path)
@@ -34,99 +116,6 @@ def model_predict(img_path):
     confidence = float(np.max(prediction))
     class_index = int(np.argmax(prediction))
     return class_index, confidence
-
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    prediction = None
-    confidence = None
-    image_path = None
-
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file and file.filename != '':
-            filepath = os.path.join('static', file.filename)
-            file.save(filepath)
-
-            class_idx, confidence = model_predict(filepath)
-            prediction = classes.get(class_idx, "Unknown")
-            image_path = filepath
-        else:
-            return render_template('index.html', error="Please select an image.", classes=classes)
-
-    return render_template('index.html',
-                           prediction=prediction,
-                           confidence=confidence,
-                           image_path=image_path,
-                           classes=classes)
-
-
-@app.route('/search-sign', methods=['POST'])
-def search_sign():
-    query = request.form.get('sign_name')
-    full_info = request.form.get('full_info')
-    image_links = []
-    descriptions = []
-    wiki_description = ""
-    wiki_full = ""
-    prediction = None
-    confidence = None
-    image_path = None
-
-    # Handle image upload
-    file = request.files.get('file')
-    if file and file.filename != '':
-        filepath = os.path.join('static', file.filename)
-        file.save(filepath)
-        class_idx, confidence = model_predict(filepath)
-        prediction = classes.get(class_idx, "Unknown")
-        image_path = filepath
-
-    # Handle search query
-    if query:
-        # Google Images
-        api_key = "AIzaSyAxlSkcip8MtFRXNIVt0GT8AYMHAaoP7O8"
-        cx = "401d18a9be38b4035"
-        response = requests.get(
-            f"https://www.googleapis.com/customsearch/v1?q={query}+traffic+sign&searchType=image&num=5&key={api_key}&cx={cx}"
-        )
-        data = response.json()
-        if 'items' in data:
-            for item in data['items']:
-                image_links.append(item['link'])
-                descriptions.append(item.get('title', 'Traffic Sign'))
-
-        # Wikipedia Description
-        try:
-            wiki_full = wikipedia.summary(f"{query} traffic sign", sentences=5)
-            if not full_info:
-                wiki_description = wikipedia.summary(f"{query} traffic sign", sentences=2)
-            else:
-                wiki_description = wiki_full
-        except:
-            wiki_description = "No detailed description found."
-
-        # Translate description
-        try:
-            translator = Translator()
-            translation = translator.translate(wiki_description, dest='en')  # For 'hi' Hindi; use 'kn' for Kannada
-            wiki_description = translation.text
-        except:
-            pass
-
-    return render_template('index.html',
-                           search_images=image_links,
-                           search_query=query,
-                           search_descs=descriptions,
-                           wiki_description=wiki_description,
-                           wiki_full=wiki_full,
-                           full_info=full_info,
-                           zip=zip,
-                           prediction=prediction,
-                           confidence=confidence,
-                           image_path=image_path,
-                           classes=classes)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
